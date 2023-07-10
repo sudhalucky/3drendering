@@ -9,7 +9,7 @@ import {
 } from "@cornerstonejs/core";
 import cornerstoneDICOMImageLoader from "@cornerstonejs/dicom-image-loader";
 import * as cornerstoneTools from "@cornerstonejs/tools";
-import removeInvalidTags from '../utils/demo/helpers/removeInvalidTags';
+import removeInvalidTags from "../utils/demo/helpers/removeInvalidTags";
 import {
   addDropdownToToolbar,
   createImageIdsAndCacheMetaData,
@@ -20,6 +20,12 @@ import {
   convertMultiframeImageIds,
   prefetchMetadataInformation,
 } from "../utils/demo/helpers/convertMultiframeImageIds";
+
+import dcmjs from "dcmjs";
+import getPixelSpacingInformation from "../utils/demo/helpers/getPixelSpacingInformation";
+
+const { DicomMetaDictionary } = dcmjs.data;
+const { calibratedPixelSpacingMetadataProvider } = utilities;
 
 // This is for debugging purposes
 console.warn(
@@ -204,13 +210,47 @@ async function run() {
 }
 
 async function loadAndViewImage(imageId) {
-//  await cornerstoneDICOMImageLoader.wadors.loadImage(imageId);
+  const image = await cornerstoneDICOMImageLoader.wadouri.loadImage(imageId)
+    .promise;
   // const mdata = cornerstoneDICOMImageLoader.wadouri.metaData.metaDataProvider("transferSyntax",imageId);
-  await prefetchMetadataInformation([imageId]);
+  // await prefetchMetadataInformation([imageId]);
   // const imageIds = convertMultiframeImageIds([imageId]);
 
+  let instanceMetaData = image.data.elements;
+
+  // It was using JSON.parse(JSON.stringify(...)) before but it is 8x slower
+  instanceMetaData = removeInvalidTags(instanceMetaData);
+
+  // cornerstoneDICOMImageLoader.wadors.metaDataManager.add(
+  //   imageId,
+  //   instanceMetaData
+  // );
+  
+  //const metadataDicom = new cornerstoneDICOMImageLoader.wadouri.metadata.metaDataProvider('multiframeModule',imageId);
+//  const imageIds = cornerstoneDICOMImageLoader.wadouri.dataSetCacheManager.get(imageId);
+
+  // if (instanceMetaData) {
+  //   // Add calibrated pixel spacing
+  //   const metadata = DicomMetaDictionary.naturalizeDataset(instanceMetaData);
+  //   const pixelSpacing = getPixelSpacingInformation(metadata);
+
+  //   if (pixelSpacing) {
+  //     calibratedPixelSpacingMetadataProvider.add(imageId, {
+  //       rowPixelSpacing: parseFloat(pixelSpacing[0]),
+  //       columnPixelSpacing: parseFloat(pixelSpacing[1]),
+  //     });
+  //   }
+  // }
+
+  //const imageIds = convertMultiframeImageIds([imageId]);
+
+  /**********************************************************************************************************************/
+  const cacheInfo =
+    cornerstoneDICOMImageLoader.wadouri.dataSetCacheManager.getInfo();
+  //image.data
+
   const volume = await volumeLoader.createAndCacheVolume(volumeId, {
-    imageIds: [imageId]
+    imageIds: [imageId],
   });
 
   // Set the volume to load

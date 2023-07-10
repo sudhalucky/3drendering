@@ -159,7 +159,7 @@ async function loadAndViewImage(imageId) {
   // Set the stack on the viewport
   viewport.setStack(stack).then(() => {
     // Set the VOI of the stack
-    viewport.setProperties({ voiRange: ctVoiRange });
+    // viewport.setProperties({ voiRange: ctVoiRange });
     // Render the image
     viewport.render();
 
