@@ -4995,3 +4995,5 @@ var TAG_DICT = {
     '(FFFE,E00D)': {'tag': '(FFFE,E00D)', 'vr': '', 'vm': '1', 'name': 'ItemDelimitationItem'},
     '(FFFE,E0DD)': {'tag': '(FFFE,E0DD)', 'vr': '', 'vm': '1', 'name': 'SequenceDelimitationItem'}
 };
+
+export default TAG_DICT;
