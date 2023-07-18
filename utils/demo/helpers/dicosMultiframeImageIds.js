@@ -1,5 +1,5 @@
-import { metaData } from '@cornerstonejs/core';
-import cornerstoneDICOMImageLoader from '@cornerstonejs/dicom-image-loader';
+import { metaData } from "@cornerstonejs/core";
+import cornerstoneDICOMImageLoader from "@cornerstonejs/dicom-image-loader";
 
 /**
  * Receives a list of imageids possibly referring to multiframe dicos images
@@ -10,30 +10,38 @@ import cornerstoneDICOMImageLoader from '@cornerstonejs/dicom-image-loader';
  * @returns new list of imageids where each imageid represents a frame
  */
 async function dicosMultiframeImageIds(imageId) {
-    const newImageIds = [];
+  const newImageIds = [];
 
-    await cornerstoneDICOMImageLoader.wadouri.loadImage(imageId)
-      .promise;
+  const image = await cornerstoneDICOMImageLoader.wadouri.loadImage(imageId)
+    .promise;
 
-    let imageIds = getDiscoFrames(imageId);
-
-    imageIds.forEach((imageFrame) => {
-      const { imageIdFrameless } = getFrameInformation(imageFrame);
-      const instanceMetaData = metaData.get('dicosMultiframeModule', imageFrame);
-      if (
-        instanceMetaData &&
-        instanceMetaData.NumberOfFrames &&
-        instanceMetaData.NumberOfFrames > 1
-      ) {
-        const NumberOfFrames = instanceMetaData.NumberOfFrames;
-        for (let i = 0; i < NumberOfFrames; i++) {
-          const newImageId = imageIdFrameless + (i + 1);
-          newImageIds.push(newImageId);
-        }
-      } else newImageIds.push(imageFrame);
-    });
-    return newImageIds;
+  const numFrames = image.data.uint16("x00280008");
+  if (numFrames > 1) {
+    for (let frameIndex = 1; frameIndex < numFrames; frameIndex++) {
+      const frameImageId = imageId + `?frame=${frameIndex}`;
+      newImageIds.push(frameImageId);
+    }
+    // The `imageIds` array now contains all the imageIds for the frames in the DICOM file
   }
-  
-  export { dicosMultiframeImageIds };
-  
+
+  // let imageIds = getDiscoFrames(imageId);
+
+  // imageIds.forEach((imageFrame) => {
+  //   const { imageIdFrameless } = getFrameInformation(imageFrame);
+  //   const instanceMetaData = metaData.get('dicosMultiframeModule', imageFrame);
+  //   if (
+  //     instanceMetaData &&
+  //     instanceMetaData.NumberOfFrames &&
+  //     instanceMetaData.NumberOfFrames > 1
+  //   ) {
+  //     const NumberOfFrames = instanceMetaData.NumberOfFrames;
+  //     for (let i = 0; i < NumberOfFrames; i++) {
+  //       const newImageId = imageIdFrameless + (i + 1);
+  //       newImageIds.push(newImageId);
+  //     }
+  //   } else newImageIds.push(imageFrame);
+  // });
+  return newImageIds;
+}
+
+export { dicosMultiframeImageIds };

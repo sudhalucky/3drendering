@@ -6,6 +6,7 @@ import {
   Types,
   utilities,
   volumeLoader,
+  metaData,
 } from "@cornerstonejs/core";
 import cornerstoneDICOMImageLoader from "@cornerstonejs/dicom-image-loader";
 import * as cornerstoneTools from "@cornerstonejs/tools";
@@ -21,9 +22,11 @@ import {
   prefetchMetadataInformation,
 } from "../utils/demo/helpers/convertMultiframeImageIds";
 
+import { dicosMultiframeImageIds } from "../utils/demo/helpers/dicosMultiframeImageIds";
+
 import TAG_DICT from "./dataDictionary";
-import dicomParser from 'dicom-parser';
-import { vec3 } from 'gl-matrix';
+import dicomParser from "dicom-parser";
+import { vec3 } from "gl-matrix";
 import dcmjs from "dcmjs";
 import getPixelSpacingInformation from "../utils/demo/helpers/getPixelSpacingInformation";
 
@@ -49,6 +52,7 @@ let renderingEngine;
 const volumeName = "CT_VOLUME_ID"; // Id of the volume less loader prefix
 //const volumeLoaderScheme = "cornerstoneDICOMImageLoader"; // Loader id which defines which volume loader to use
 const volumeLoaderScheme = "cornerstoneStreamingImageVolume"; // Loader id which defines which volume loader to use
+//const volumeLoaderScheme = "dicom"; // Loader id which defines which volume loader to use
 const volumeId = `${volumeLoaderScheme}:${volumeName}`; // VolumeId with loader id + volume id
 const renderingEngineId = "myRenderingEngine";
 const viewportId = "3D_VIEWPORT";
@@ -102,24 +106,24 @@ instructions.innerText = "Click the image to rotate it.";
 
 content.append(instructions);
 
-// addDropdownToToolbar({
-//   options: {
-//     values: CONSTANTS.VIEWPORT_PRESETS.map((preset) => preset.name),
-//     defaultValue: "CT-Bone",
-//   },
-//   onSelectedValueChange: (presetName) => {
-//     const volumeActor = renderingEngine
-//       .getViewport(viewportId)
-//       .getDefaultActor().actor;
+addDropdownToToolbar({
+  options: {
+    values: CONSTANTS.VIEWPORT_PRESETS.map((preset) => preset.name),
+    defaultValue: "CT-Air",
+  },
+  onSelectedValueChange: (presetName) => {
+    const volumeActor = renderingEngine
+      .getViewport(viewportId)
+      .getDefaultActor().actor;
 
-//     utilities.applyPreset(
-//       volumeActor,
-//       CONSTANTS.VIEWPORT_PRESETS.find((preset) => preset.name === presetName)
-//     );
+    utilities.applyPreset(
+      volumeActor,
+      CONSTANTS.VIEWPORT_PRESETS.find((preset) => preset.name === presetName)
+    );
 
-//     renderingEngine.render();
-//   },
-// });
+    renderingEngine.render();
+  },
+});
 
 // ============================= //
 
@@ -212,17 +216,15 @@ async function run() {
   // renderingEngine.render();
 }
 
-function getTag(tag)
-{
-    var group = tag.substring(1,5);
-    var element = tag.substring(5,9);
-    var tagIndex = ("("+group+","+element+")").toUpperCase();
-    var attr = TAG_DICT[tagIndex];
-    return attr;
+function getTag(tag) {
+  var group = tag.substring(1, 5);
+  var element = tag.substring(5, 9);
+  var tagIndex = ("(" + group + "," + element + ")").toUpperCase();
+  var attr = TAG_DICT[tagIndex];
+  return attr;
 }
 
 async function loadAndViewImage(imageId) {
-
   function dictObject(value) {
     return value;
   }
@@ -230,21 +232,21 @@ async function loadAndViewImage(imageId) {
     .promise;
   // const mdata = cornerstoneDICOMImageLoader.wadouri.metaData.metaDataProvider("transferSyntax",imageId);
   // await prefetchMetadataInformation([imageId]);
-  // const imageIds = convertMultiframeImageIds([imageId]);
+  const imageIds = await dicosMultiframeImageIds(imageId);
 
-  //var dataSet = dicomParser.parseDicom(image.data.byteArray);
   let instanceMetaData = image.data;
 
   // It was using JSON.parse(JSON.stringify(...)) before but it is 8x slower
   //instanceMetaData = removeInvalidTags(instanceMetaData);
 
+  //  cornerstoneDICOMImageLoader.wadouri.metadata
   // cornerstoneDICOMImageLoader.wadors.metaDataManager.add(
   //   imageId,
   //   instanceMetaData
   // );
-  
+
   //const metadataDicom = new cornerstoneDICOMImageLoader.wadouri.metadata.metaDataProvider('multiframeModule',imageId);
-//  const imageIds = cornerstoneDICOMImageLoader.wadouri.dataSetCacheManager.get(imageId);
+  //  const imageIds = cornerstoneDICOMImageLoader.wadouri.dataSetCacheManager.get(imageId);
 
   // if (instanceMetaData) {
   //   // Add calibrated pixel spacing
@@ -259,79 +261,90 @@ async function loadAndViewImage(imageId) {
   //   }
   // }
 
-  //const imageIds = convertMultiframeImageIds([imageId]);
-
   /**********************************************************************************************************************/
-  const cacheInfo =
-    cornerstoneDICOMImageLoader.wadouri.dataSetCacheManager.getInfo();
-  //image.data
-
-  // const volume = await volumeLoader.createAndCacheVolume(volumeId, {
-  //   imageIds: [imageId],
-  // });
+  // const cacheInfo =
+  //   cornerstoneDICOMImageLoader.wadouri.dataSetCacheManager.getInfo();
 
   var keys = {};
-  for(var propertyName in TAG_DICT) {
-    let {tag, name} = TAG_DICT[propertyName];
-      keys[name] = 'x'+tag.substring(1,5)+tag.substring(6,10);
+  for (var propertyName in TAG_DICT) {
+    let { tag, name } = TAG_DICT[propertyName];
+    keys[name] = "x" + tag.substring(1, 5) + tag.substring(6, 10);
   }
 
-  const imageDimensions = instanceMetaData.elements[keys['ImageDimensions']];
+  //const imageDimensions = instanceMetaData.elements[keys["ImageDimensions"]];
   let dicosMetadata = {
     /** Number of bits allocated for each pixel sample. Each sample shall have the same number of bits allocated */
-    BitsAllocated: instanceMetaData.uint16(keys['BitsAllocated']),
+    BitsAllocated: instanceMetaData.uint16(keys["BitsAllocated"]),
     /** Number of bits stored for each pixel sample */
-    BitsStored: instanceMetaData.uint16(keys['BitsStored']),
-    SamplesPerPixel: instanceMetaData.uint16(keys['SamplesPerPixel']),
+    BitsStored: instanceMetaData.uint16(keys["BitsStored"]),
+    SamplesPerPixel: instanceMetaData.uint16(keys["SamplesPerPixel"]),
     /** Most significant bit for pixel sample data */
-    HighBit: instanceMetaData.uint16(keys['HighBit']),
+    HighBit: instanceMetaData.uint16(keys["HighBit"]),
     /** Specifies the intended interpretation of the pixel data */
-    PhotometricInterpretation: instanceMetaData.string(keys['PhotometricInterpretation']),
+    PhotometricInterpretation: instanceMetaData.string(
+      keys["PhotometricInterpretation"]
+    ),
     /** Data representation of the pixel samples. */
-    PixelRepresentation: instanceMetaData.uint16(keys['PixelRepresentation']),
+    PixelRepresentation: instanceMetaData.uint16(keys["PixelRepresentation"]),
     /** Image Modality */
-    Modality: instanceMetaData.string(keys['Modality']),
+    Modality: instanceMetaData.string(keys["Modality"]),
     /** SeriesInstanceUID of the volume */
-    SeriesInstanceUID: instanceMetaData.string(keys['SeriesInstanceUID']),
+    SeriesInstanceUID: instanceMetaData.string(keys["SeriesInstanceUID"]),
     /** The direction cosines of the first row and the first column with respect to the patient */
     ImageOrientationPatient: null, //instanceMetaData.elements[keys['SharedFunctionalGroupsSequence']].items[0].dataSet.elements[keys['PlaneOrientationSequence']].items[0].dataSet.elements[keys['ImageOrientationPatient']], //Array<number>;
     /** Physical distance in the patient between the center of each pixel */
     PixelSpacing: null, //instanceMetaData.elements[keys['SharedFunctionalGroupsSequence']].items[0].dataSet.elements[keys['PixelMeasuresSequence']].items[0].dataSet.elements[keys['PixelSpacing']], //Array<number>;
     ImagePositionPatient: null,
-    SliceThickness: instanceMetaData.elements[keys['SharedFunctionalGroupsSequence']].items[0].dataSet.elements[keys['PixelMeasuresSequence']].items[0].dataSet.uint16(keys['SliceThickness']), //Array<number>;
+    SliceThickness: instanceMetaData.elements[
+      keys["SharedFunctionalGroupsSequence"]
+    ].items[0].dataSet.elements[
+      keys["PixelMeasuresSequence"]
+    ].items[0].dataSet.uint16(keys["SliceThickness"]), //Array<number>;
     /** Uniquely identifies the Frame of Reference for a Series */
-    FrameOfReferenceUID: instanceMetaData.string(keys['FrameOfReferenceUID']),
+    FrameOfReferenceUID: instanceMetaData.string(keys["FrameOfReferenceUID"]),
     /** Number of columns in the image. */
-    Columns: instanceMetaData.uint16(keys['Columns']),
+    Columns: instanceMetaData.uint16(keys["Columns"]),
     /** Number of rows in the image. */
-    Rows: instanceMetaData.uint16(keys['Rows']),
-    NumberOfFrames:instanceMetaData.uint16(keys['NumberOfFrames']),
+    Rows: instanceMetaData.uint16(keys["Rows"]),
+    NumberOfFrames: instanceMetaData.uint16(keys["NumberOfFrames"]),
     /** Window Level/Center for the image */
     voiLut: null, //Array<VOI>;
     /** VOILUTFunction for the image which is LINEAR or SAMPLED_SIGMOID */
-    VOILUTFunction: null, //string;
+    VOILUTFunction: "LINEAR", //string;
   };
 
   let intValues = [];
-  let n = instanceMetaData.elements[keys['SharedFunctionalGroupsSequence']].items[0].dataSet.elements[keys['PlaneOrientationSequence']].items[0].dataSet;
-  for(let i=0;i<n.numStringValues(keys['ImageOrientationPatient']);i++) {
-    intValues.push(n.intString(keys['ImageOrientationPatient'],i));
+  let n =
+    instanceMetaData.elements[keys["SharedFunctionalGroupsSequence"]].items[0]
+      .dataSet.elements[keys["PlaneOrientationSequence"]].items[0].dataSet;
+  for (let i = 0; i < n.numStringValues(keys["ImageOrientationPatient"]); i++) {
+    intValues.push(n.intString(keys["ImageOrientationPatient"], i));
   }
   dicosMetadata.ImageOrientationPatient = intValues;
 
-  intValues = [];
-  n = instanceMetaData.elements[keys['PerFrameFunctionalGroupsSequence']].items[0].dataSet.elements[keys['PlanePositionSequence']].items[0].dataSet;
-  for(let i=0;i<n.numStringValues(keys['ImagePositionPatient']);i++) {
-    intValues.push(n.intString(keys['ImagePositionPatient'],i));
+  let intValues1 = [];
+  n =
+    instanceMetaData.elements[keys["PerFrameFunctionalGroupsSequence"]].items[0]
+      .dataSet.elements[keys["PlanePositionSequence"]].items[0].dataSet;
+  for (let i = 0; i < n.numStringValues(keys["ImagePositionPatient"]); i++) {
+    intValues1.push(n.intString(keys["ImagePositionPatient"], i));
   }
-  dicosMetadata.ImagePositionPatient = intValues;
+  dicosMetadata.ImagePositionPatient = intValues1;
 
   let floatValues = [];
-  n = instanceMetaData.elements[keys['SharedFunctionalGroupsSequence']].items[0].dataSet.elements[keys['PixelMeasuresSequence']].items[0].dataSet;
-  for(let i=0;i<n.numStringValues(keys['PixelSpacing']);i++) {
-    floatValues.push(n.floatString(keys['PixelSpacing'],i));
+  n =
+    instanceMetaData.elements[keys["SharedFunctionalGroupsSequence"]].items[0]
+      .dataSet.elements[keys["PixelMeasuresSequence"]].items[0].dataSet;
+  for (let i = 0; i < n.numStringValues(keys["PixelSpacing"]); i++) {
+    floatValues.push(n.floatString(keys["PixelSpacing"], i));
   }
-  dicosMetadata.PixelSpacing = floatValues; 
+
+  dicosMetadata.PixelSpacing = floatValues;
+
+  calibratedPixelSpacingMetadataProvider.add(imageId, {
+    rowPixelSpacing: parseFloat(dicosMetadata.PixelSpacing[0]),
+    columnPixelSpacing: parseFloat(dicosMetadata.PixelSpacing[1]),
+  });
 
   const rowCosineVec = vec3.fromValues(
     dicosMetadata.ImageOrientationPatient[0],
@@ -350,17 +363,27 @@ async function loadAndViewImage(imageId) {
   vec3.cross(scanAxisNormal, rowCosineVec, colCosineVec);
 
   // Spacing goes [1] then [0], as [1] is column spacing (x) and [0] is row spacing (y)
-  const spacing = [dicosMetadata.PixelSpacing[1], dicosMetadata.PixelSpacing[0], dicosMetadata.SliceThickness];
-  const dimensions = [dicosMetadata.Columns, dicosMetadata.Rows, dicosMetadata.NumberOfFrames];
-  const direction = [
-    ...rowCosineVec,
-    ...colCosineVec,
-    ...scanAxisNormal,
+  const spacing = [
+    dicosMetadata.PixelSpacing[1],
+    dicosMetadata.PixelSpacing[0],
+    1,
+  ]; //dicosMetadata.SliceThickness];
+  const dimensions = [
+    dicosMetadata.Columns,
+    dicosMetadata.Rows,
+    dicosMetadata.NumberOfFrames,
   ];
+  const direction = [...rowCosineVec, ...colCosineVec, ...scanAxisNormal];
 
+  //metaData.add(imageId, dicosMetadata);
 
   const localVolumeOptions = {
-    scalarData: image.getPixelData(),
+    scalarData: dicomParser.readEncapsulatedPixelData(
+      instanceMetaData,
+      instanceMetaData.elements.x7fe00010,
+      0
+    ),
+    //    scalarData: image.data.byteArray,//image.data.byteArray, //image.getPixelData(),
     metadata: dicosMetadata,
     dimensions: dimensions,
     spacing: spacing,
@@ -368,10 +391,17 @@ async function loadAndViewImage(imageId) {
     direction: direction,
   };
 
-  const volume = await volumeLoader.createLocalVolume( localVolumeOptions, imageId);
+  // const imageVolume = await volumeLoader.createLocalVolume(
+  //   localVolumeOptions,
+  //   volumeId
+  // );
+
+  const volume = await volumeLoader.createAndCacheVolume(volumeId, {
+    imageIds,
+  });
 
   // Set the volume to load
-  //volume.load();
+  // volume.load();
 
   // const viewport = renderingEngine.getViewport(viewportId);
   // viewport.setStack(imageIds).then(() => {
@@ -464,14 +494,14 @@ async function loadAndViewImage(imageId) {
 
   setVolumesForViewports(renderingEngine, [{ volumeId }], [viewportId]).then(
     () => {
-      // const volumeActor = renderingEngine
-      //   .getViewport(viewportId)
-      //   .getDefaultActor().actor as Types.VolumeActor;
+      const volumeActor = renderingEngine
+        .getViewport(viewportId)
+        .getDefaultActor().actor;
 
-      // utilities.applyPreset(
-      //   volumeActor,
-      //   CONSTANTS.VIEWPORT_PRESETS.find((preset) => preset.name === 'CT-Bone')
-      // );
+      utilities.applyPreset(
+        volumeActor,
+        CONSTANTS.VIEWPORT_PRESETS.find((preset) => preset.name === "CT-Air")
+      );
 
       viewport.render();
     }
